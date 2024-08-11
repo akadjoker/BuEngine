@@ -1,0 +1,434 @@
+bool isPointInTriangle(const Vec2 &p, const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    Vec2 v0 = {c.x - a.x, c.y - a.y};
+    Vec2 v1 = {b.x - a.x, b.y - a.y};
+    Vec2 v2 = {p.x - a.x, p.y - a.y};
+
+    float dot00 = v0.x * v0.x + v0.y * v0.y;
+    float dot01 = v0.x * v1.x + v0.y * v1.y;
+    float dot02 = v0.x * v2.x + v0.y * v2.y;
+    float dot11 = v1.x * v1.x + v1.y * v1.y;
+    float dot12 = v1.x * v2.x + v1.y * v2.y;
+
+    float invDen = 1.0f / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDen;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDen;
+
+    return (u >= 0) && (v >= 0) && (u + v < 1);
+}
+
+bool isConvexTriangle(const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    return (a.y - b.y) * (c.x - b.x) + (b.x - a.x) * (c.y - b.y) >= 0;
+}
+
+bool isEar(const std::vector<Vec2> &polygon, size_t i, size_t prev, size_t next)
+{
+    if (!isConvexTriangle(polygon[prev], polygon[i], polygon[next]))
+    {
+        return false;
+    }
+
+    for (size_t j = 0; j < polygon.size(); ++j)
+    {
+        if (j == prev || j == i || j == next)
+            continue;
+        if (isPointInTriangle(polygon[j], polygon[prev], polygon[i], polygon[next]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::vector<Triangle> Triangulate(const std::vector<Vec2> &polygon)
+{
+    std::vector<Triangle> triangles;
+    std::vector<int> indices(polygon.size());
+    std::iota(indices.begin(), indices.end(), 0); // Inicializa os índices
+
+    std::vector<int> avl = indices;
+
+    while (avl.size() > 3)
+    {
+        bool earFound = false;
+
+        for (size_t i = 0; i < avl.size(); ++i)
+        {
+            size_t prev = (i + avl.size() - 1) % avl.size();
+            size_t next = (i + 1) % avl.size();
+
+            if (isEar(polygon, avl[i], avl[prev], avl[next]))
+            {
+                triangles.push_back(Triangle(polygon[avl[prev]], polygon[avl[i]], polygon[avl[next]]));
+                avl.erase(avl.begin() + i);
+                earFound = true;
+                break;
+            }
+        }
+
+        if (!earFound)
+            break; // Se não encontrar um "ouvido", a triangulação falha
+    }
+
+    if (avl.size() == 3)
+    {
+        triangles.push_back(Triangle(polygon[avl[0]], polygon[avl[1]], polygon[avl[2]]));
+    }
+
+    return triangles;
+}
+
+bool isClockwise(const std::vector<Vec2> &polygon)
+{
+    float sum = 0.0f;
+    for (size_t i = 0; i < polygon.size(); ++i)
+    {
+        Vec2 curr = polygon[i];
+        Vec2 next = polygon[(i + 1) % polygon.size()];
+        sum += (next.x - curr.x) * (next.y + curr.y);
+    }
+    return sum > 0.0f;
+}
+
+
+
+#include "pch.h"
+#include <raylib.h>
+#include <Config.hpp>
+#include <Engine2D.hpp>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+
+const int screenWidth = 1024;
+const int screenHeight = 720;
+
+struct Triangle
+{
+    Vec2 a, b, c;
+    Triangle() {}
+    Triangle(const Vec2 &a, const Vec2 &b, const Vec2 &c) : a(a), b(b), c(c) {}
+};
+
+Vector<Vec2> BuildFromList(std::vector<float> list)
+{
+    Vector<Vec2> vertices;
+    for (int i = 0; i < list.size(); i += 2)
+    {
+        vertices.push_back(Vec2(list[i], list[i + 1]));
+    }
+
+    return vertices;
+}
+
+bool isPointInTriangle(const Vec2 &p, const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    Vec2 v0 = {c.x - a.x, c.y - a.y};
+    Vec2 v1 = {b.x - a.x, b.y - a.y};
+    Vec2 v2 = {p.x - a.x, p.y - a.y};
+
+    float dot00 = v0.x * v0.x + v0.y * v0.y;
+    float dot01 = v0.x * v1.x + v0.y * v1.y;
+    float dot02 = v0.x * v2.x + v0.y * v2.y;
+    float dot11 = v1.x * v1.x + v1.y * v1.y;
+    float dot12 = v1.x * v2.x + v1.y * v2.y;
+
+    float invDen = 1.0f / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDen;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDen;
+
+    return (u >= 0) && (v >= 0) && (u + v < 1);
+}
+
+bool isConvexTriangle(const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    return (a.y - b.y) * (c.x - b.x) + (b.x - a.x) * (c.y - b.y) >= 0;
+}
+
+bool isEar(const Vector<Vec2> &polygon, size_t i, size_t prev, size_t next)
+{
+    if (!isConvexTriangle(polygon[prev], polygon[i], polygon[next]))
+    {
+        return false;
+    }
+
+    for (size_t j = 0; j < polygon.size(); ++j)
+    {
+        if (j == prev || j == i || j == next)
+            continue;
+        if (isPointInTriangle(polygon[j], polygon[prev], polygon[i], polygon[next]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+Vector<Triangle> Triangulate(const Vector<Vec2> &polygon)
+{
+    Vector<Triangle> triangles;
+    Vector<int> avl;
+    for (size_t i = 0; i < polygon.size(); i++)
+        avl.push_back(i);
+
+    while (avl.size() > 3)
+    {
+        bool earFound = false;
+
+        for (size_t i = 0; i < avl.size(); ++i)
+        {
+            size_t prev = (i + avl.size() - 1) % avl.size();
+            size_t next = (i + 1) % avl.size();
+
+            if (isEar(polygon, avl[i], avl[prev], avl[next]))
+            {
+                triangles.push_back(Triangle(polygon[avl[prev]], polygon[avl[i]], polygon[avl[next]]));
+                avl.erase(i);
+                earFound = true;
+                break;
+            }
+        }
+
+        if (!earFound)
+            break; // Se não encontrar um "ear", a triangulação falha
+    }
+
+    if (avl.size() == 3)
+    {
+        triangles.push_back(Triangle(polygon[avl[0]], polygon[avl[1]], polygon[avl[2]]));
+    }
+
+    return triangles;
+}
+
+struct Poly
+{
+    Vector<Vec2> vertices;
+};
+
+struct Polygon
+{
+    Vector<Poly> shapes;
+    float x, y;
+    Vec2 pivot;
+    float angle;
+    Vec2 scale;
+
+    Polygon()
+    {
+        x = 0;
+        y = 0;
+        pivot = Vec2(0, 0);
+        angle = 0;
+        scale = Vec2(1, 1);
+    }
+
+    void AddPoly(Poly shape)
+    {
+        shapes.push_back(shape);
+    }
+
+    void AddBox(float w, float h)
+    {
+        Poly shape;
+        float left = 0;
+        float right = w;  // left + width;
+        float bottom = h; // -height / 2.0f;
+        float top = 0;    // bottom + height;
+
+        shape.vertices.push_back(Vec2(left, top));
+        shape.vertices.push_back(Vec2(right, top));
+        shape.vertices.push_back(Vec2(right, bottom));
+        shape.vertices.push_back(Vec2(left, bottom));
+
+        AddPoly(shape);
+    }
+
+    bool collide(const Polygon &other)
+    {
+        for (size_t i = 0; i < shapes.size(); i++)
+        {
+            for (size_t j = 0; j < other.shapes.size(); j++)
+            {
+                if (IntersectPolygons(x, y, pivot, scale, angle, shapes[i].vertices, 
+                other.x, other.y, other.pivot, other.scale, other.angle, other.shapes[j].vertices))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    void render()
+    {
+        for (size_t i = 0; i < shapes.size(); i++)
+        {
+            DrawPolygon(shapes[i].vertices, GREEN);
+        }
+    }
+};
+
+int main()
+{
+
+    InitWindow(screenWidth, screenHeight, "BuEngine");
+    SetTargetFPS(60);
+
+
+    Polygon a;
+    Polygon b;
+
+    a.x = 0;
+    a.y = 0;
+  
+   // a.AddBox(50, 50);
+    b.AddBox(50, 50);
+
+    
+    Vector<Vec2> vertices = BuildFromList(
+        {10, 313, 1, 53, 66, 54, 117, 316, 332, 285, 572, 327, 920, 406, 910, 532, 10, 508});
+
+    // b2Body* body = world->CreateBody(&bodyDef);
+
+    Vector<Triangle> triangles = Triangulate(vertices);
+
+    for (u32 i = 0; i < triangles.size(); i++)
+    {
+
+        Poly shape;
+
+        shape.vertices.push_back(Vec2(triangles[i].a.x, triangles[i].a.y));
+        shape.vertices.push_back(Vec2(triangles[i].b.x, triangles[i].b.y));
+        shape.vertices.push_back(Vec2(triangles[i].c.x, triangles[i].c.y));
+        
+
+        a.AddPoly( shape);
+
+        // shapeb.push_back(Vec2(triangles[i].a.x, triangles[i].a.y));
+        // shapeb.push_back(Vec2(triangles[i].b.x, triangles[i].b.y));
+        // shapeb.push_back(Vec2(triangles[i].c.x, triangles[i].c.y));
+    }
+
+    while (!WindowShouldClose())
+    {
+
+        BeginDrawing();
+
+        ClearBackground(BLACK);
+
+
+        b.x = GetMouseX();
+        b.y = GetMouseY();
+        b.angle+=1.1f;
+
+        a.render();
+        b.render();
+
+        //   world->Step(1.0f / 60.0f, 8, 3);
+        //  world->DebugDraw();
+
+        ///   DrawPolygon(shapea, RED);
+        //   DrawPolygon(shapeb, GREEN);
+
+        if (b.collide(a))
+        {
+            DrawText("Collide", 200, 100, 20, RED);
+        }
+        else
+        {
+            DrawText("Not collide", 200, 100, 20, WHITE);
+        }
+
+        // for (const Triangle &tri : triangles)
+        // {
+        //     DrawLine(tri.a.x, tri.a.y, tri.b.x, tri.b.y, RED);
+        //     DrawLine(tri.b.x, tri.b.y, tri.c.x, tri.c.y, GREEN);
+        //     DrawLine(tri.c.x, tri.c.y, tri.a.x, tri.a.y, BLUE);
+        // }
+
+        DrawFPS(10, 10);
+        DrawText(TextFormat("Nodes: %i", Scene::as().count()), 10, 25, 20, WHITE);
+
+        EndDrawing();
+    }
+
+    Scene::as().clear();
+    Assets::as().clear();
+
+    CloseWindow();
+
+    return 0;
+}
+
+
+struct Poly
+{
+    Vector<Vec2> vertices;
+};
+
+struct Polygon
+{
+    Vector<Poly> shapes;
+    float x, y;
+    Vec2 pivot;
+    float angle;
+    Vec2 scale;
+
+    Polygon()
+    {
+        x = 0;
+        y = 0;
+        pivot = Vec2(0, 0);
+        angle = 0;
+        scale = Vec2(1, 1);
+    }
+
+    void AddPoly(Poly shape)
+    {
+        shapes.push_back(shape);
+    }
+
+    void AddBox(float w, float h)
+    {
+        Poly shape;
+        float left = 0;
+        float right = w;  // left + width;
+        float bottom = h; // -height / 2.0f;
+        float top = 0;    // bottom + height;
+
+        shape.vertices.push_back(Vec2(left, top));
+        shape.vertices.push_back(Vec2(right, top));
+        shape.vertices.push_back(Vec2(right, bottom));
+        shape.vertices.push_back(Vec2(left, bottom));
+
+        AddPoly(shape);
+    }
+
+    bool collide(const Polygon &other)
+    {
+        for (size_t i = 0; i < shapes.size(); i++)
+        {
+            for (size_t j = 0; j < other.shapes.size(); j++)
+            {
+                if (IntersectPolygons(x, y, pivot, scale, angle, shapes[i].vertices, 
+                other.x, other.y, other.pivot, other.scale, other.angle, other.shapes[j].vertices))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    void render()
+    {
+        for (size_t i = 0; i < shapes.size(); i++)
+        {
+            DrawPolygon(shapes[i].vertices, GREEN);
+        }
+    }
+};

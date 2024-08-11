@@ -1,0 +1,92 @@
+bool isPointInTriangle(const Vec2 &p, const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    Vec2 v0 = {c.x - a.x, c.y - a.y};
+    Vec2 v1 = {b.x - a.x, b.y - a.y};
+    Vec2 v2 = {p.x - a.x, p.y - a.y};
+
+    float dot00 = v0.x * v0.x + v0.y * v0.y;
+    float dot01 = v0.x * v1.x + v0.y * v1.y;
+    float dot02 = v0.x * v2.x + v0.y * v2.y;
+    float dot11 = v1.x * v1.x + v1.y * v1.y;
+    float dot12 = v1.x * v2.x + v1.y * v2.y;
+
+    float invDen = 1.0f / (dot00 * dot11 - dot01 * dot01);
+    float u = (dot11 * dot02 - dot01 * dot12) * invDen;
+    float v = (dot00 * dot12 - dot01 * dot02) * invDen;
+
+    return (u >= 0) && (v >= 0) && (u + v < 1);
+}
+
+bool isConvexTriangle(const Vec2 &a, const Vec2 &b, const Vec2 &c)
+{
+    return (a.y - b.y) * (c.x - b.x) + (b.x - a.x) * (c.y - b.y) >= 0;
+}
+
+bool isEar(const std::vector<Vec2> &polygon, size_t i, size_t prev, size_t next)
+{
+    if (!isConvexTriangle(polygon[prev], polygon[i], polygon[next]))
+    {
+        return false;
+    }
+
+    for (size_t j = 0; j < polygon.size(); ++j)
+    {
+        if (j == prev || j == i || j == next)
+            continue;
+        if (isPointInTriangle(polygon[j], polygon[prev], polygon[i], polygon[next]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::vector<Triangle> Triangulate(const std::vector<Vec2> &polygon)
+{
+    std::vector<Triangle> triangles;
+    std::vector<int> indices(polygon.size());
+    std::iota(indices.begin(), indices.end(), 0); // Inicializa os índices
+
+    std::vector<int> avl = indices;
+
+    while (avl.size() > 3)
+    {
+        bool earFound = false;
+
+        for (size_t i = 0; i < avl.size(); ++i)
+        {
+            size_t prev = (i + avl.size() - 1) % avl.size();
+            size_t next = (i + 1) % avl.size();
+
+            if (isEar(polygon, avl[i], avl[prev], avl[next]))
+            {
+                triangles.push_back(Triangle(polygon[avl[prev]], polygon[avl[i]], polygon[avl[next]]));
+                avl.erase(avl.begin() + i);
+                earFound = true;
+                break;
+            }
+        }
+
+        if (!earFound)
+            break; // Se não encontrar um "ouvido", a triangulação falha
+    }
+
+    if (avl.size() == 3)
+    {
+        triangles.push_back(Triangle(polygon[avl[0]], polygon[avl[1]], polygon[avl[2]]));
+    }
+
+    return triangles;
+}
+
+bool isClockwise(const std::vector<Vec2> &polygon)
+{
+    float sum = 0.0f;
+    for (size_t i = 0; i < polygon.size(); ++i)
+    {
+        Vec2 curr = polygon[i];
+        Vec2 next = polygon[(i + 1) % polygon.size()];
+        sum += (next.x - curr.x) * (next.y + curr.y);
+    }
+    return sum > 0.0f;
+}
