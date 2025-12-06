@@ -168,11 +168,11 @@ private:
 const int screenWidth = 1024;
 const int screenHeight = 720;
 
-struct Triangle
+struct BTriangle
 {
     b2Vec2 a, b, c;
-    Triangle() {}
-    Triangle(const b2Vec2 &a, const b2Vec2 &b, const b2Vec2 &c) : a(a), b(b), c(c) {}
+    BTriangle() {}
+    BTriangle(const b2Vec2 &a, const b2Vec2 &b, const b2Vec2 &c) : a(a), b(b), c(c) {}
 };
 
 static b2World *world;
@@ -236,9 +236,9 @@ bool isEar(const Vector<b2Vec2> &polygon, size_t i, size_t prev, size_t next)
     return true;
 }
 
-Vector<Triangle> Triangulate(const Vector<b2Vec2> &polygon)
+Vector<BTriangle> Triangulate(const Vector<b2Vec2> &polygon)
 {
-    Vector<Triangle> triangles;
+    Vector<BTriangle> triangles;
     Vector<int> avl;
     for (size_t i = 0; i < polygon.size(); i++)
         avl.push_back(i);
@@ -255,7 +255,7 @@ Vector<Triangle> Triangulate(const Vector<b2Vec2> &polygon)
 
             if (isEar(polygon, avl[i], avl[prev], avl[next]))
             {
-                triangles.push_back(Triangle(polygon[avl[prev]], polygon[avl[i]], polygon[avl[next]]));
+                triangles.push_back(BTriangle(polygon[avl[prev]], polygon[avl[i]], polygon[avl[next]]));
                 avl.erase(i);
                 earFound = true;
                 break;
@@ -268,7 +268,7 @@ Vector<Triangle> Triangulate(const Vector<b2Vec2> &polygon)
 
     if (avl.size() == 3)
     {
-        triangles.push_back(Triangle(polygon[avl[0]], polygon[avl[1]], polygon[avl[2]]));
+        triangles.push_back(BTriangle(polygon[avl[0]], polygon[avl[1]], polygon[avl[2]]));
     }
 
     return triangles;
@@ -345,7 +345,7 @@ int main()
 
 
 
-     Vector<Triangle> triangles = Triangulate(vertices);
+     Vector<BTriangle> triangles = Triangulate(vertices);
     // for (u32 i = 0; i < triangles.size()-1; i++)
     // {
     //     std::vector<b2Vec2> triangleVertices;
@@ -445,7 +445,7 @@ for (u32 i = 0; i < triangles.size(); i++)
             DrawText("Not collide", 200, 100, 20, WHITE);
         }
 
-        for (const Triangle &tri : triangles)
+        for (const BTriangle &tri : triangles)
         {
             DrawLine(tri.a.x, tri.a.y, tri.b.x, tri.b.y, RED);
             DrawLine(tri.b.x, tri.b.y, tri.c.x, tri.c.y, GREEN);

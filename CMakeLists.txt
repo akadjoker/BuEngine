@@ -3,8 +3,8 @@ cmake_policy(SET CMP0072 NEW)
 
 project(BuEngine)
 
-#add_subdirectory(box2d)
-#add_subdirectory(box)
+add_subdirectory(box2d)
+add_subdirectory(box)
 add_subdirectory(buengine)
 add_subdirectory(parallax)
 add_subdirectory(shooter)
